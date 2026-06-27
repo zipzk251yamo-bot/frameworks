@@ -1,0 +1,193 @@
+{
+  "info": {
+    "_postman_id": "a8f6d7c7-e1d1-4f8e-8a9a-9b1c0d2e3f4b",
+    "name": "Song API CRUD",
+    "description": "Song Controller для управління піснями через JSON. Базовий URL: /api/songs. Методи: GET (список), GET {id}, POST (створення), PUT (оновлення), DELETE (видалення). Всі поля обов'язкові: title, artist, year (1000-2100), album, genre. Валідація: JSON формат, перевірка полів, перевірка року.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "GET - Get All Songs",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code 200', function() { pm.response.to.have.status(200); });",
+              "pm.test('Response is array', function() { pm.expect(pm.response.json()).to.be.an('array'); });"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/songs",
+          "protocol": "http",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "songs"]
+        },
+        "description": "Отримує всі пісні. Відповідь: 200 OK, масив пісень. Запит без параметрів."
+      },
+      "response": []
+    },
+    {
+      "name": "GET - Get Song by ID",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "pm.test('Status code 200 or 404', function() { pm.expect([200, 404]).to.include(pm.response.code); });",
+              "if (pm.response.code === 200) {",
+              "  pm.test('Song object has required fields', function() {",
+              "    var json = pm.response.json();",
+              "    pm.expect(json).to.have.property('id');",
+              "    pm.expect(json).to.have.property('title');",
+              "  });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "GET",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/songs/{{songId}}",
+          "protocol": "http",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "songs", "{{songId}}"]
+        },
+        "description": "Отримує пісню за ID. Параметри: {{songId}} - ID пісні. Відповідь успіху: 200 OK з об'єктом пісні. Помилка: 404 Not Found якщо ID не існує."
+      },
+      "response": []
+    },
+    {
+      "name": "POST - Create Song",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 201) {",
+              "  pm.test('Status code 201', function() { pm.response.to.have.status(201); });",
+              "  var json = pm.response.json();",
+              "  pm.environment.set('songId', json.id);",
+              "  pm.test('Created song has ID', function() { pm.expect(json).to.have.property('id'); });",
+              "} else if (pm.response.code === 400) {",
+              "  pm.test('Status code 400 - Bad Request', function() { pm.response.to.have.status(400); });",
+              "  pm.test('Error message present', function() { pm.expect(pm.response.json()).to.have.property('error'); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Bohemian Rhapsody\",\n  \"artist\": \"Queen\",\n  \"year\": 1975,\n  \"album\": \"A Night at the Opera\",\n  \"genre\": \"Rock\"\n}\n\n// ТЕСТУВАННЯ ПОМИЛОК:\n// 1. Без полів: {\"title\": \"Song\"} -> 400 Bad Request\n// 2. Невірний рік: {\"title\": \"S\", \"artist\": \"A\", \"year\": 9999, \"album\": \"A\", \"genre\": \"R\"} -> 400\n// 3. Невірний JSON: { invalid } -> 400 Bad Request"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/songs",
+          "protocol": "http",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "songs"]
+        },
+        "description": "Створює нову пісню. Обов'язкові поля: title, artist, year, album, genre. Валідація: рік 1000-2100, JSON формат, усі поля. Відповідь: 201 Created з об'єктом пісні та ID."
+      },
+      "response": []
+    },
+    {
+      "name": "PUT - Update Song",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  pm.test('Status code 200', function() { pm.response.to.have.status(200); });",
+              "  pm.test('Updated song returned', function() { pm.expect(pm.response.json()).to.have.property('title'); });",
+              "} else if (pm.response.code === 404) {",
+              "  pm.test('Status code 404 - Not Found', function() { pm.response.to.have.status(404); });",
+              "} else if (pm.response.code === 400) {",
+              "  pm.test('Status code 400 - Bad Request', function() { pm.response.to.have.status(400); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Bohemian Rhapsody - Remastered\",\n  \"genre\": \"Progressive Rock\"\n}\n\n// ТЕСТУВАННЯ ПОМИЛОК:\n// 1. ID не існує: URL /api/songs/nonexistent123 -> 404 Not Found\n// 2. Невірний JSON: { invalid } -> 400 Bad Request"
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/songs/{{songId}}",
+          "protocol": "http",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "songs", "{{songId}}"]
+        },
+        "description": "Оновлює пісню. Параметри: {{songId}} - ID пісні. Всі поля опціональні (часткове оновлення). Відповідь: 200 OK з оновленою піснею. Помилки: 404 Not Found, 400 Bad Request."
+      },
+      "response": []
+    },
+    {
+      "name": "DELETE - Delete Song",
+      "event": [
+        {
+          "listen": "test",
+          "script": {
+            "exec": [
+              "if (pm.response.code === 200) {",
+              "  pm.test('Status code 200', function() { pm.response.to.have.status(200); });",
+              "  pm.test('Success message', function() { pm.expect(pm.response.json()).to.have.property('message'); });",
+              "} else if (pm.response.code === 404) {",
+              "  pm.test('Status code 404 - Not Found', function() { pm.response.to.have.status(404); });",
+              "}"
+            ]
+          }
+        }
+      ],
+      "request": {
+        "method": "DELETE",
+        "header": [],
+        "url": {
+          "raw": "{{baseUrl}}/api/songs/{{songId}}",
+          "protocol": "http",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "songs", "{{songId}}"]
+        },
+        "description": "Видаляє пісню. Параметри: {{songId}} - ID пісні. Відповідь: 200 OK з повідомленням. Помилка: 404 Not Found якщо ID не існує."
+      },
+      "response": []
+    }
+  ],
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "songId",
+      "value": "507f1f77bcf86cd799439011",
+      "type": "string"
+    }
+  ]
+}

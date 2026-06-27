@@ -1,0 +1,662 @@
+{
+  "info": {
+    "_postman_id": "a8f6d7c7-e1d1-4f8e-8a9a-9b1c0d2e3f4b",
+    "name": "Song API CRUD",
+    "description": "# Syphony Song API CRUD\n\n---\n\n## Опис архітектури\n\nДаний проєкт реалізує REST API для управління піснями з використанням **In-Memory масиву даних** як тимчасового сховища. Замість реляційної бази даних (MySQL, PostgreSQL тощо) усі записи про пісні зберігаються безпосередньо у приватній PHP-константі `DATA` всередину контролера `SongController`. Це означає, що:\n\n- Дані існують виключно в межах одного запиту (не персистуються між запитами).\n- Операції `POST`, `PUT`, `DELETE` повертають коректні HTTP-статуси та JSON-відповіді, але фізично не змінюють масив між запитами.\n- Підхід є типовим для навчальних та демонстраційних проєктів, де важлива демонстрація HTTP-семантики без підключення до бази даних.\n\nКонтролер напряму повертає JSON-відповіді з відповідними HTTP-кодами та повністю валідує дані перед обробкою.\n\n---\n\n## Системні вимоги та структура проєкту\n\n### Системні вимоги\n\n| Компонент | Версія / Вимога |\n|---|---|\n| PHP | >= 7.4 |\n| HTTP-клієнт | Postman, curl, Insomnia тощо |\n| Content-Type | application/json |\n\n### Структура проєкту (ключові файли)\n\n```\n.\n├── app/\n│   └── Http/\n│       └── Controllers/\n│           └── SongController.php      # Основний контролер API\n├── routes/\n│   └── api.php                         # Реєстрація маршрутів\n└── composer.json                       # Залежності проєкту\n```\n\n### Файл `routes/api.php`\n\nМаршрути зареєстровані через API маршрутизацію та делегують виклики до методів `SongController`:\n\n```php\nRoute::get('/api/songs', [SongController::class, 'getAllSongs']);\nRoute::get('/api/songs/{id}', [SongController::class, 'getSongById']);\nRoute::post('/api/songs', [SongController::class, 'createSong']);\nRoute::put('/api/songs/{id}', [SongController::class, 'updateSong']);\nRoute::delete('/api/songs/{id}', [SongController::class, 'deleteSong']);\n```\n\n### Файл `app/Http/Controllers/SongController.php`\n\nКонтролер містить константу `DATA` з попередньо заповненими записами пісень та методи для кожної CRUD-операції. Кожен метод повертає JSON-відповідь з відповідним HTTP-статус-кодом та повністю валідує вхідні дані.\n\n---\n\n## Зведена таблиця ендпоінтів\n\n| Метод | URI | Опис | HTTP статус успіху |\n|---|---|---|---|\n| GET | /api/songs | Отримання списку всіх пісень | 200 OK |\n| GET | /api/songs/{id} | Отримання пісні за ID | 200 OK |\n| POST | /api/songs | Створення нової пісні | 201 Created |\n| PUT | /api/songs/{id} | Повне оновлення даних пісні | 200 OK |\n| DELETE | /api/songs/{id} | Видалення пісні | 200 OK |\n\n---\n\n## Детальний опис кожного ендпоінту\n\n---\n\n### GET /api/songs — Отримання списку всіх пісень\n\n**Призначення:** Повертає масив усіх пісень, що зберігаються в константі `DATA` контролера.\n\n**Заголовки запиту:**\n```\nAccept: application/json\n```\n\n**Request Body:** відсутній.\n\n**Успішна відповідь (200 OK):**\n```json\n[\n  {\n    \"id\": \"1\",\n    \"title\": \"Bohemian Rhapsody\",\n    \"artist\": \"Queen\",\n    \"year\": \"1975\",\n    \"album\": \"A Night at the Opera\",\n    \"genre\": \"Rock\"\n  },\n  {\n    \"id\": \"2\",\n    \"title\": \"Imagine\",\n    \"artist\": \"John Lennon\",\n    \"year\": \"1971\",\n    \"album\": \"Imagine\",\n    \"genre\": \"Pop\"\n  },\n  {\n    \"id\": \"3\",\n    \"title\": \"Hotel California\",\n    \"artist\": \"Eagles\",\n    \"year\": \"1976\",\n    \"album\": \"Hotel California\",\n    \"genre\": \"Rock\"\n  }\n]\n```\n\n**Помилки:** Цей ендпоінт не повертає помилок за нормальних умов.\n\n---\n\n### GET /api/songs/{id} — Отримання пісні за ID\n\n**Призначення:** Шукає пісню в масиві `DATA` за переданим числовим ідентифікатором `{id}`. Якщо пісню знайдено — повертає її об'єкт. Якщо ні — повертає 404.\n\n**Параметри шляху:**\n\n| Параметр | Тип | Обов'язковий | Опис |\n|---|---|---|---|\n| id | integer | Так | Унікальний ідентифікатор пісні |\n\n**Заголовки запиту:**\n```\nAccept: application/json\n```\n\n**Успішна відповідь (200 OK):**\n```json\n{\n  \"id\": \"1\",\n  \"title\": \"Bohemian Rhapsody\",\n  \"artist\": \"Queen\",\n  \"year\": \"1975\",\n  \"album\": \"A Night at the Opera\",\n  \"genre\": \"Rock\"\n}\n```\n\n**Помилки:**\n\n**404 Not Found** — пісню з переданим ID не знайдено в масиві:\n```json\n{\n  \"error\": \"Пісню не знайдено\"\n}\n```\n\n---\n\n### POST /api/songs — Створення нової пісні\n\n**Призначення:** Приймає JSON-тіло з даними нової пісні, виконує валідацію всіх обов'язкових полів та повертає створений об'єкт із згенерованим `id`. Фактично новий запис не зберігається між запитами (In-Memory архітектура).\n\n**Заголовки запиту:**\n```\nContent-Type: application/json\nAccept: application/json\n```\n\n**Request Body (обов'язкові поля):**\n\n| Поле | Тип | Обов'язковий | Опис |\n|---|---|---|---|\n| title | string | Так | Назва пісні |\n| artist | string | Так | Виконавець пісні |\n| year | integer | Так | Рік випуску (1000-2100) |\n| album | string | Так | Назва альбому |\n| genre | string | Так | Жанр пісні |\n\n**Приклад тіла запиту:**\n```json\n{\n  \"title\": \"Stairway to Heaven\",\n  \"artist\": \"Led Zeppelin\",\n  \"year\": 1971,\n  \"album\": \"Led Zeppelin IV\",\n  \"genre\": \"Rock\"\n}\n```\n\n**Успішна відповідь (201 Created):**\n```json\n{\n  \"id\": \"42\",\n  \"title\": \"Stairway to Heaven\",\n  \"artist\": \"Led Zeppelin\",\n  \"year\": \"1971\",\n  \"album\": \"Led Zeppelin IV\",\n  \"genre\": \"Rock\"\n}\n```\n\n**Помилки:**\n\n**400 Bad Request** — тіло запиту порожнє:\n```json\n{\n  \"error\": \"Тіло запиту є недійсним або порожнім\"\n}\n```\n\n**400 Bad Request** — одне з обов'язкових полів відсутнє або порожнє:\n```json\n{\n  \"error\": \"Поле \\\"title\\\" є необхідним\"\n}\n```\n\n**400 Bad Request** — рік поза допустимим діапазоном (1000-2100):\n```json\n{\n  \"error\": \"Поле \\\"year\\\" має бути в діапазоні 1000-2100\"\n}\n```\n\n**400 Bad Request** — невірний JSON формат:\n```json\n{\n  \"error\": \"Невалідний JSON формат\"\n}\n```\n\n---\n\n### PUT /api/songs/{id} — Повне оновлення даних пісні\n\n**Призначення:** Приймає JSON-тіло з даними для оновлення. Замінює всі дані пісні на передані значення. Знаходить пісню за `{id}`, застосовує зміни та повертає оновлений запис. Усі поля в тілі запиту мають бути присутні (не часткове оновлення).\n\n**Параметри шляху:**\n\n| Параметр | Тип | Обов'язковий | Опис |\n|---|---|---|---|\n| id | integer | Так | Унікальний ідентифікатор пісні |\n\n**Заголовки запиту:**\n```\nContent-Type: application/json\nAccept: application/json\n```\n\n**Request Body (усі поля обов'язкові):**\n\n| Поле | Тип | Опис |\n|---|---|---|\n| title | string | Нова назва пісні |\n| artist | string | Новий виконавець |\n| year | integer | Новий рік випуску (1000-2100) |\n| album | string | Новий альбом |\n| genre | string | Новий жанр |\n\n**Приклад тіла запиту:**\n```json\n{\n  \"title\": \"Bohemian Rhapsody - Remaster 2024\",\n  \"artist\": \"Queen\",\n  \"year\": 1975,\n  \"album\": \"A Night at the Opera - Remastered\",\n  \"genre\": \"Rock Opera\"\n}\n```\n\n**Успішна відповідь (200 OK):**\n```json\n{\n  \"id\": \"1\",\n  \"title\": \"Bohemian Rhapsody - Remaster 2024\",\n  \"artist\": \"Queen\",\n  \"year\": \"1975\",\n  \"album\": \"A Night at the Opera - Remastered\",\n  \"genre\": \"Rock Opera\"\n}\n```\n\n**Помилки:**\n\n**400 Bad Request** — тіло запиту порожнє:\n```json\n{\n  \"error\": \"Тіло запиту є недійсним або порожнім\"\n}\n```\n\n**400 Bad Request** — одне з необхідних полів відсутнє:\n```json\n{\n  \"error\": \"Поле \\\"artist\\\" є необхідним\"\n}\n```\n\n**400 Bad Request** — невірне значення року:\n```json\n{\n  \"error\": \"Поле \\\"year\\\" має бути в діапазоні 1000-2100\"\n}\n```\n\n**404 Not Found** — пісню з переданим ID не знайдено:\n```json\n{\n  \"error\": \"Пісню не знайдено\"\n}\n```\n\n---\n\n### DELETE /api/songs/{id} — Видалення пісні\n\n**Призначення:** Шукає пісню в масиві за `{id}`. Якщо знайдено — повертає успішне повідомлення зі статусом 200. Якщо ні — повертає 404.\n\n**Параметри шляху:**\n\n| Параметр | Тип | Обов'язковий | Опис |\n|---|---|---|---|\n| id | integer | Так | Унікальний ідентифікатор пісні |\n\n**Заголовки запиту:**\n```\nAccept: application/json\n```\n\n**Request Body:** відсутній.\n\n**Успішна відповідь (200 OK):**\n```json\n{\n  \"message\": \"Пісню успішно видалено\"\n}\n```\n\n**Помилки:**\n\n**404 Not Found** — пісню з переданим ID не знайдено:\n```json\n{\n  \"error\": \"Пісню не знайдено\"\n}\n```\n\n---\n\n## Секція: Промт для генерації\n\nДаний API був сгенерований на основі технічного завдання для управління колекцією пісень. Проєкт використовує в-пам'яті сховище даних для демонстраційних та навчальних цілей. Документація включає повний опис кожного ендпоінту з прикладами успішних відповідей та обробкою помилок, які відповідають стандартам REST API та HTTP семантики.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "http://localhost:8000",
+      "type": "string"
+    },
+    {
+      "key": "songId",
+      "value": "1",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "GET /api/songs — Список всіх пісень",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/songs",
+          "protocol": "http",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "songs"]
+        },
+        "description": "Повертає масив усіх пісень зі статус-кодом 200 OK."
+      },
+      "response": [
+        {
+          "name": "200 OK — Список пісень",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/songs",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "[\n  {\n    \"id\": \"1\",\n    \"title\": \"Bohemian Rhapsody\",\n    \"artist\": \"Queen\",\n    \"year\": \"1975\",\n    \"album\": \"A Night at the Opera\",\n    \"genre\": \"Rock\"\n  },\n  {\n    \"id\": \"2\",\n    \"title\": \"Imagine\",\n    \"artist\": \"John Lennon\",\n    \"year\": \"1971\",\n    \"album\": \"Imagine\",\n    \"genre\": \"Pop\"\n  },\n  {\n    \"id\": \"3\",\n    \"title\": \"Hotel California\",\n    \"artist\": \"Eagles\",\n    \"year\": \"1976\",\n    \"album\": \"Hotel California\",\n    \"genre\": \"Rock\"\n  }\n]"
+        }
+      ]
+    },
+    {
+      "name": "GET /api/songs/{id} — Пісня за ID",
+      "request": {
+        "method": "GET",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/songs/1",
+          "protocol": "http",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "songs", "1"]
+        },
+        "description": "Повертає одну пісню за числовим ідентифікатором. При відсутності ID у масиві повертає 404."
+      },
+      "response": [
+        {
+          "name": "200 OK — Пісня знайдена",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/songs/1",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs", "1"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"1\",\n  \"title\": \"Bohemian Rhapsody\",\n  \"artist\": \"Queen\",\n  \"year\": \"1975\",\n  \"album\": \"A Night at the Opera\",\n  \"genre\": \"Rock\"\n}"
+        },
+        {
+          "name": "404 Not Found — Пісня не знайдена",
+          "originalRequest": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/songs/999",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs", "999"]
+            }
+          },
+          "status": "Not Found",
+          "code": 404,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"error\": \"Пісню не знайдено\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "POST /api/songs — Створення пісні",
+      "request": {
+        "method": "POST",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Stairway to Heaven\",\n  \"artist\": \"Led Zeppelin\",\n  \"year\": 1971,\n  \"album\": \"Led Zeppelin IV\",\n  \"genre\": \"Rock\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/songs",
+          "protocol": "http",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "songs"]
+        },
+        "description": "Створює нову пісню. Обов'язкові поля: `title`, `artist`, `year` (1000-2100), `album`, `genre`. Повертає 201 Created з об'єктом нової пісні та згенерованим ID. При невалідних даних — 400 Bad Request."
+      },
+      "response": [
+        {
+          "name": "201 Created — Пісня створена",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Stairway to Heaven\",\n  \"artist\": \"Led Zeppelin\",\n  \"year\": 1971,\n  \"album\": \"Led Zeppelin IV\",\n  \"genre\": \"Rock\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/songs",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs"]
+            }
+          },
+          "status": "Created",
+          "code": 201,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"42\",\n  \"title\": \"Stairway to Heaven\",\n  \"artist\": \"Led Zeppelin\",\n  \"year\": \"1971\",\n  \"album\": \"Led Zeppelin IV\",\n  \"genre\": \"Rock\"\n}"
+        },
+        {
+          "name": "400 Bad Request — Порожнє тіло запиту",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/songs",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs"]
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"error\": \"Тіло запиту є недійсним або порожнім\"\n}"
+        },
+        {
+          "name": "400 Bad Request — Відсутнє обов'язкове поле",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Song\",\n  \"artist\": \"Artist\",\n  \"album\": \"Album\",\n  \"genre\": \"Rock\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/songs",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs"]
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"error\": \"Поле \\\"year\\\" є необхідним\"\n}"
+        },
+        {
+          "name": "400 Bad Request — Невірний рік",
+          "originalRequest": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Song\",\n  \"artist\": \"Artist\",\n  \"year\": 9999,\n  \"album\": \"Album\",\n  \"genre\": \"Rock\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/songs",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs"]
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"error\": \"Поле \\\"year\\\" має бути в діапазоні 1000-2100\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "PUT /api/songs/{id} — Оновлення пісні",
+      "request": {
+        "method": "PUT",
+        "header": [
+          {
+            "key": "Content-Type",
+            "value": "application/json",
+            "type": "text"
+          },
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "body": {
+          "mode": "raw",
+          "raw": "{\n  \"title\": \"Bohemian Rhapsody - Remastered\",\n  \"artist\": \"Queen\",\n  \"year\": 1975,\n  \"album\": \"A Night at the Opera - 2024\",\n  \"genre\": \"Rock Opera\"\n}",
+          "options": {
+            "raw": {
+              "language": "json"
+            }
+          }
+        },
+        "url": {
+          "raw": "{{baseUrl}}/api/songs/1",
+          "protocol": "http",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "songs", "1"]
+        },
+        "description": "Повністю оновлює дані пісні. Усі поля обов'язкові: `title`, `artist`, `year` (1000-2100), `album`, `genre`. Повертає оновлений об'єкт зі статусом 200. При 404 — пісня не знайдена. При помилках валідації — 400."
+      },
+      "response": [
+        {
+          "name": "200 OK — Пісня оновлена",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Bohemian Rhapsody - Remastered\",\n  \"artist\": \"Queen\",\n  \"year\": 1975,\n  \"album\": \"A Night at the Opera - 2024\",\n  \"genre\": \"Rock Opera\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/songs/1",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs", "1"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"id\": \"1\",\n  \"title\": \"Bohemian Rhapsody - Remastered\",\n  \"artist\": \"Queen\",\n  \"year\": \"1975\",\n  \"album\": \"A Night at the Opera - 2024\",\n  \"genre\": \"Rock Opera\"\n}"
+        },
+        {
+          "name": "400 Bad Request — Порожнє тіло запиту",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/songs/1",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs", "1"]
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"error\": \"Тіло запиту є недійсним або порожнім\"\n}"
+        },
+        {
+          "name": "400 Bad Request — Невірний рік",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Song\",\n  \"artist\": \"Artist\",\n  \"year\": 9999,\n  \"album\": \"Album\",\n  \"genre\": \"Rock\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/songs/1",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs", "1"]
+            }
+          },
+          "status": "Bad Request",
+          "code": 400,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"error\": \"Поле \\\"year\\\" має бути в діапазоні 1000-2100\"\n}"
+        },
+        {
+          "name": "404 Not Found — Пісня не знайдена",
+          "originalRequest": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json",
+                "type": "text"
+              },
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"title\": \"Song\",\n  \"artist\": \"Artist\",\n  \"year\": 1975,\n  \"album\": \"Album\",\n  \"genre\": \"Rock\"\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/songs/999",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs", "999"]
+            }
+          },
+          "status": "Not Found",
+          "code": 404,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"error\": \"Пісню не знайдено\"\n}"
+        }
+      ]
+    },
+    {
+      "name": "DELETE /api/songs/{id} — Видалення пісні",
+      "request": {
+        "method": "DELETE",
+        "header": [
+          {
+            "key": "Accept",
+            "value": "application/json",
+            "type": "text"
+          }
+        ],
+        "url": {
+          "raw": "{{baseUrl}}/api/songs/1",
+          "protocol": "http",
+          "host": ["{{baseUrl}}"],
+          "path": ["api", "songs", "1"]
+        },
+        "description": "Видаляє пісню за ID. При успіху повертає 200 OK з повідомленням. При відсутньому ID — 404 Not Found."
+      },
+      "response": [
+        {
+          "name": "200 OK — Пісня видалена",
+          "originalRequest": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/songs/1",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs", "1"]
+            }
+          },
+          "status": "OK",
+          "code": 200,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"message\": \"Пісню успішно видалено\"\n}"
+        },
+        {
+          "name": "404 Not Found — Пісня не знайдена",
+          "originalRequest": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "Accept",
+                "value": "application/json",
+                "type": "text"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/api/songs/999",
+              "protocol": "http",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "songs", "999"]
+            }
+          },
+          "status": "Not Found",
+          "code": 404,
+          "_postman_previewlanguage": "json",
+          "header": [
+            {
+              "key": "Content-Type",
+              "value": "application/json"
+            }
+          ],
+          "cookie": [],
+          "body": "{\n  \"error\": \"Пісню не знайдено\"\n}"
+        }
+      ]
+    }
+  ]
+}
